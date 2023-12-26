@@ -79,3 +79,8 @@ pico_set_float_implementation(fuzix none)
 pico_set_double_implementation(fuzix none)
 pico_add_extra_outputs(fuzix)
 
+target_include_directories(fuzix PRIVATE u8g2/csrc)
+file(GLOB U8G2_SRC u8g2/csrc/*.c)
+add_library(u8g2 ${U8G2_SRC})
+target_link_libraries(fuzix u8g2)
+
