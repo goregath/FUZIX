@@ -38,8 +38,15 @@
 
 #define CONFIG_32BIT
 #define CONFIG_USERMEM_DIRECT
-/* Serial TTY, no VT or font */
-#undef CONFIG_VT
+
+#define CONFIG_VT
+
+#define VT_WIDTH 20
+#define VT_HEIGHT 4
+
+#define VT_RIGHT 19
+#define VT_BOTTOM 3
+
 #undef CONFIG_FONT8X8
 
 /* Program layout */

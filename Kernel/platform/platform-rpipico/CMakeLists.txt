@@ -60,6 +60,7 @@ add_executable(fuzix
 	../../syscall_other.c
 	../../syscall_proc.c
 	../../timer.c
+	../../vt.c
 	../../tty.c
 	../../usermem.c
 	../../version.c
@@ -83,4 +84,3 @@ target_include_directories(fuzix PRIVATE u8g2/csrc)
 file(GLOB U8G2_SRC u8g2/csrc/*.c)
 add_library(u8g2 ${U8G2_SRC})
 target_link_libraries(fuzix u8g2)
-
