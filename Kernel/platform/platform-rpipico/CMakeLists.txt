@@ -22,6 +22,7 @@ add_executable(fuzix
 	devices.c
 	devflash.c
 	devsdspi.c
+	ssd1320z2.c
 	devtty.c
 	elf.c 
 	main.c
@@ -81,6 +82,7 @@ pico_set_double_implementation(fuzix none)
 pico_add_extra_outputs(fuzix)
 
 target_include_directories(fuzix PRIVATE u8g2/csrc)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wl,--gc-sections")
 file(GLOB U8G2_SRC u8g2/csrc/*.c)
 add_library(u8g2 ${U8G2_SRC})
 target_link_libraries(fuzix u8g2)

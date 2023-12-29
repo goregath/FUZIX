@@ -62,7 +62,6 @@ void device_init(void) {
 
     sd_rawinit();
     devsd_init();
-    vtinit();
 
     hardware_alarm_claim(0);
     update_us_since_boot(&now, time_us_64());
