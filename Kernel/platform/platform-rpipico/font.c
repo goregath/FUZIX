@@ -12,7 +12,6 @@
 #define FONTDATAMAX 2048
 #endif
 
-// const unsigned char fontdata[FONTDATAMAX] = {
 const unsigned char __in_flash() fontdata[FONTDATAMAX] = {
 #ifndef CONFIG_FONT8X8SMALL
 	/* 0 0x00 '^@' */

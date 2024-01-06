@@ -16,17 +16,26 @@
 #define HIGH true
 #define LOW false
 
-static uint8_t deltay = 0;
+static const uint8_t m4[] = {
+    0x00, 0x00,
+    0x00, 0xf0,
+    0x00, 0x0f,
+    0x00, 0xff,
+    0xf0, 0x00,
+    0xf0, 0xf0,
+    0xf0, 0x0f,
+    0xf0, 0xff,
+    0x0f, 0x00,
+    0x0f, 0xf0,
+    0x0f, 0x0f,
+    0x0f, 0xff,
+    0xff, 0x00,
+    0xff, 0xf0,
+    0xff, 0x0f,
+    0xff, 0xff,
+};
 
-static inline uint32_t htonl(uint32_t x) {
-    #if BYTE_ORDER == BIG_ENDIAN
-       return x;
-    #elif BYTE_ORDER == LITTLE_ENDIAN
-       return __builtin_bswap32(x);
-    #else
-       #error "What kind of system is this?"
-    #endif
-}
+static uint8_t deltay = 0;
 
 static void rawsetall(bool dc, uint8_t b0) {
     gpio_put(VT_DC, !dc);
@@ -136,78 +145,29 @@ void display_init() {
     rawsetall(COMREG, 0xaf);
 }
 
-/*
-static void setaddr(uint8_t cs, uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2) {
-    // 0x21,start,end (set column address)
-    // 0x22,start,end (set row address)
-    if(x2 < 80) {
-        rawset(COMREG, cs, 0x21);
-        rawset(COMREG, cs, x1);
-        rawset(COMREG, cs, x2);
-        rawset(COMREG, cs, 0x22);
-        rawset(COMREG, cs, y1);
-        rawset(COMREG, cs, y2);
-    } else {
-        rawset(COMREG, VT_CS1, 0x21);
-        rawset(COMREG, VT_CS1, x1);
-        rawset(COMREG, VT_CS1, 79);
-        rawset(COMREG, VT_CS1, 0x22);
-        rawset(COMREG, VT_CS1, y1);
-        rawset(COMREG, VT_CS1, y2);
-        rawset(COMREG, VT_CS2, 0x21);
-        rawset(COMREG, VT_CS2, 0);
-        rawset(COMREG, VT_CS2, x2 - 80);
-        rawset(COMREG, VT_CS2, 0x22);
-        rawset(COMREG, VT_CS2, y1);
-        rawset(COMREG, VT_CS2, y2);
-    }
-}
-*/
-
 #define GLYPH(c) (fontdata + (c >= 32 && c < 128 ? (size_t) ((c << 3) - 256) : 0))
 #define MEMY(y) ((y * 8 + deltay) % 160)
 
 extern unsigned char fontdata[];
 
-const unsigned char fontdata2[] = {
-	/* 79 0x4f 'O' */
-	0x7c, /* 01111100 */
-	0xc6, /* 11000110 */
-	0xc6, /* 11000110 */
-	0xc6, /* 11000110 */
-	0xc6, /* 11000110 */
-	0xc6, /* 11000110 */
-	0x7c, /* 01111100 */
-	0x00, /* 00000000 */
-	/* 0 0x00 '^@' */
-	0x00, /* 00000000 */
-	0x00, /* 00000000 */
-	0x00, /* 00000000 */
-	0x00, /* 00000000 */
-	0x00, /* 00000000 */
-	0x00, /* 00000000 */
-	0x00, /* 00000000 */
-	0x00, /* 00000000 */
-
-	/* 1 0x01 '^A' */
-	0x7e, /* 01111110 */
-	0x81, /* 10000001 */
-	0xa5, /* 10100101 */
-	0x81, /* 10000001 */
-	0xbd, /* 10111101 */
-	0x99, /* 10011001 */
-	0x81, /* 10000001 */
-	0x7e, /* 01111110 */
-};
-
 uint8_t vtattr_cap = VTA_INVERSE | VTA_UNDERLINE;
 
 void clear_lines(int8_t y, int8_t ct) {
-
+    for (uint8_t i = 0; i < ct; i++) {
+        clear_across(y+i, 0, VT_RIGHT + 1);
+    }
 }
 
-void clear_across(int8_t y, int8_t x, int16_t l) {}
+void clear_across(int8_t y, int8_t x, int16_t l) {
+    // TODO rewrite
+    uint8_t x2 = x + l;
+    for (size_t i = 0; i < l; i++) {
+        plot_char(y, x+i, 0x20);
+    }
+}
+
 void cursor_off(void) {}
+
 void cursor_on(int8_t y, int8_t x) {}
 void cursor_disable(void) {}
 
@@ -225,25 +185,6 @@ void scroll_down(void) {
 
 void do_beep(void) {}
 void vtattr_notify(void) {}
-
-static const uint8_t m4[] = {
-    0x00, 0x00,
-    0x0f, 0x00,
-    0xf0, 0x00,
-    0xff, 0x00,
-    0x00, 0x0f,
-    0x0f, 0x0f,
-    0xf0, 0x0f,
-    0xff, 0x0f,
-    0x00, 0xf0,
-    0x0f, 0xf0,
-    0xf0, 0xf0,
-    0xff, 0xf0,
-    0x00, 0xff,
-    0x0f, 0xff,
-    0xf0, 0xff,
-    0xff, 0xff,
-};
 
 void plot_char(int8_t y, int8_t x, uint16_t c) {
     static uint8_t cmd[6] = { 0x21, 0, 0, 0x22, 0, 159 };
@@ -268,8 +209,8 @@ void plot_char(int8_t y, int8_t x, uint16_t c) {
     for (size_t i = 0; i < 16; i+=2, bmp++) {
         size_t un = ((*bmp) & 0xf0) >> 4;
         size_t ln = (*bmp) & 0x0f;
-        raw[i] = m4g16[ln];
-        raw[i + 1] = m4g16[un];
+        raw[i] = m4g16[un];
+        raw[i + 1] = m4g16[ln];
     }
     spi_write_blocking(VT_SPI_MOD, (uint8_t *) raw, 32);
     gpio_put(cs, HIGH);
