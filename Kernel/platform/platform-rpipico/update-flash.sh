@@ -29,7 +29,9 @@ mkdir /usr/man/man1
 mkdir /var/run
 
 cd /usr
+mkdir bin
 mkdir lib
+chmod 0755 bin
 chmod 0755 lib
 
 cd /
@@ -72,11 +74,11 @@ bget ../../../Applications/util/init init
 chmod 755 init
 
 cd /etc
-bget ../../../Standalone/filesystem-src/etc-files/issue
+bget ../../../Standalone/filesystem-src/templates/issue
 bget ../../../Standalone/filesystem-src/etc-files/motd
 bget ../../../Standalone/filesystem-src/etc-files/passwd
 bget ../../../Standalone/filesystem-src/etc-files/inittab
-bget ../../../Standalone/filesystem-src/etc-files/termcap
+bget image/etc/termcap
 bget ../../../Standalone/filesystem-src/etc-files/rc
 chmod 0644 issue
 chmod 0644 motd
@@ -84,6 +86,14 @@ chmod 0644 passwd
 chmod 0644 inittab
 chmod 0644 termcap
 chmod 0755 rc
+
+cd /usr/bin
+bget ../../../Applications/MWC/cmd/expr
+bget ../../../Applications/MWC/cmd/find
+bget ../../../Applications/MWC/cmd/make
+chmod 0755 expr
+chmod 0755 find
+chmod 0755 make
 
 cd /bin
 bget ../../../Applications/util/banner
@@ -104,7 +114,7 @@ bget ../../../Applications/util/dd
 bget ../../../Applications/util/decomp16
 bget ../../../Applications/util/df
 bget ../../../Applications/util/dirname
-bget ../../../Applications/util/dosread
+# bget ../../../Applications/util/dosread
 bget ../../../Applications/util/du
 bget ../../../Applications/util/echo
 bget ../../../Applications/util/ed
@@ -142,9 +152,11 @@ bget ../../../Applications/util/reboot
 bget ../../../Applications/util/remount
 bget ../../../Applications/util/rm
 bget ../../../Applications/util/rmdir
+bget ../../../Applications/util/sed
 bget ../../../Applications/util/setdate
+bget ../../../Applications/util/seq
 bget ../../../Applications/util/sleep
-bget ../../../Applications/util/ssh
+# bget ../../../Applications/util/ssh
 bget ../../../Applications/util/sort
 bget ../../../Applications/util/stty
 bget ../../../Applications/util/sum
@@ -162,7 +174,7 @@ bget ../../../Applications/util/uniq
 bget ../../../Applications/util/uptime
 bget ../../../Applications/util/uud
 bget ../../../Applications/util/uue
-#bget ../../../Applications/util/vile
+# bget ../../../Applications/util/vile
 bget ../../../Applications/util/wc
 bget ../../../Applications/util/which
 bget ../../../Applications/util/who
@@ -170,7 +182,6 @@ bget ../../../Applications/util/whoami
 bget ../../../Applications/util/write
 bget ../../../Applications/util/xargs
 bget ../../../Applications/util/yes
-chmod 0755 banner
 chmod 0755 basename
 chmod 0755 bd
 chmod 0755 blkdiscard
@@ -188,7 +199,7 @@ chmod 0755 dd
 chmod 0755 decomp16
 chmod 0755 df
 chmod 0755 dirname
-chmod 0755 dosread
+# chmod 0755 dosread
 chmod 0755 du
 chmod 0755 echo
 chmod 0755 ed
@@ -225,10 +236,12 @@ chmod 0755 reboot
 chmod 0755 remount
 chmod 0755 rm
 chmod 0755 rmdir
+chmod 0755 sed
 chmod 0755 setdate
+chmod 0755 seq
 chmod 0755 sleep
 chmod 0755 sort
-chmod 0755 ssh
+# chmod 0755 ssh
 chmod 0755 stty
 chmod 0755 sum
 chmod 0755 swapon
@@ -244,7 +257,7 @@ chmod 0755 uniq
 chmod 0755 uptime
 chmod 0755 uud
 chmod 0755 uue
-#chmod 0755 vile
+# chmod 0755 vile
 chmod 0755 wc
 chmod 0755 which
 chmod 0755 who
@@ -338,9 +351,9 @@ bget ../../../Applications/util/tchelp
 chmod 0644 liberror.txt
 chmod 0755 tchelp
 
-cd /usr
-mkdir games
-cd /usr/games
+# cd /usr
+# mkdir games
+# cd /usr/games
 #bget ../../../Applications/games/adv01
 #bget ../../../Applications/games/adv02
 #bget ../../../Applications/games/adv03
@@ -357,7 +370,7 @@ cd /usr/games
 #bget ../../../Applications/games/adv14a
 #bget ../../../Applications/games/adv14b
 #bget ../../../Applications/games/advint
-bget ../../../Applications/games/cowsay
+#bget ../../../Applications/games/cowsay
 #bget ../../../Applications/games/fortune
 #bget ../../../Applications/games/fortune.dat
 #bget ../../../Applications/games/hamurabi
@@ -398,7 +411,7 @@ bget ../../../Applications/games/cowsay
 #chmod 0755 adv14a
 #chmod 0755 adv14b
 #chmod 0755 advint
-chmod 0755 cowsay
+#chmod 0755 cowsay
 #chmod 0755 fortune
 #chmod 0644 fortune.dat
 #chmod 0755 hamurabi
@@ -423,14 +436,14 @@ chmod 0755 cowsay
 #chmod 0755 z8
 #chmod 0755 invaders
 
-bget ../../../Applications/cave/advent
-chmod 0755 advent
-
-cd /usr/games
-mkdir lib
-cd lib
-bget ../../../Applications/cave/advent.db
-chmod 0644 advent.db
+# bget ../../../Applications/cave/advent
+# chmod 0755 advent
+# 
+# cd /usr/games
+# mkdir lib
+# cd lib
+# bget ../../../Applications/cave/advent.db
+# chmod 0644 advent.db
 
 #cd /usr/lib
 #mkdir trek
