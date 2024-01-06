@@ -44,8 +44,10 @@ void tty_sleeping(uint_fast8_t minor) {}
 void tty_data_consumed(uint_fast8_t minor) {}
 
 void tty_setup(uint_fast8_t minor, uint_fast8_t flags) {
-    if (minor == 1) {
+    static bool vt_initialized = false;
+    if (!vt_initialized) {
         display_init();
         vtinit();
+        vt_initialized = true;
     }
 }
