@@ -191,15 +191,14 @@ void plot_char(int8_t y, int8_t x, uint16_t c) {
     uint16_t *m4g16 = (uint16_t *) m4;
     uint16_t raw[16];
     unsigned int cs;
-    x *= 4;
-    if (x < 79) {
+    if (x < 20) {
         cs = VT_CS1;
     } else {
-        x -= 80;
+        x -= 20;
         cs = VT_CS2;
     }
-    cmd[1] = x;
-    cmd[2] = x + 3;
+    cmd[1] = x * 4;
+    cmd[2] = x * 4 + 3;
     cmd[4] = MEMY(y);
     gpio_put(VT_DC, LOW);
     gpio_put(cs, LOW);
