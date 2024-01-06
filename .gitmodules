@@ -1,3 +1,0 @@
-[submodule "Kernel/platform/platform-rpipico/u8g2"]
-	path = Kernel/platform/platform-rpipico/u8g2
-	url = https://github.com/olikraus/u8g2.git
