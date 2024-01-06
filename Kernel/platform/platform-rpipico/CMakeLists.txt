@@ -22,12 +22,12 @@ add_executable(fuzix
 	devices.c
 	devflash.c
 	devsdspi.c
-	ssd1320z2.c
 	devtty.c
 	elf.c 
 	main.c
 	misc.c
 	rawflash.c
+	ssd1320z2.c
 	swapper.c
 	tricks.S
 	core1.c

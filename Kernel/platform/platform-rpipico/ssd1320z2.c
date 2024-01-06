@@ -1,3 +1,9 @@
+/**
+ *  VT52 Driver for dual Solomon SSD1320Z OLED Modules.
+ *
+ *  ER-OLEDM0383-1: 3.83" OLED Module 320x132 SPI 16-Level Grayscale.
+ */
+
 // vim: sw=4:ts=4
 
 #include "picosdk.h"
@@ -16,6 +22,19 @@
 #define HIGH true
 #define LOW false
 
+#define GLYPH(c) (fontdata + (c >= 32 && c < 128 ? (size_t) ((c << 3) - 256) : 0))
+#define ROWADJUST(y) ((y * 8 + lineaddr) % 160)
+
+// Borrowed linux font 8x8 pixel horizontal bitmap
+extern unsigned char fontdata[];
+
+// VT52 capabilities
+uint8_t vtattr_cap = 0; // VTA_INVERSE | VTA_UNDERLINE;
+
+// Line offset in display memory
+static uint8_t lineaddr = 0;
+
+// Map 4 monochrome pxels to 4x4 bit grayscale
 static const uint8_t m4[] = {
     0x00, 0x00,
     0x00, 0xf0,
@@ -35,8 +54,9 @@ static const uint8_t m4[] = {
     0xff, 0xff,
 };
 
-static uint8_t deltay = 0;
-
+/**
+ *  Send command to all display controllers.
+ */
 static void rawsetall(bool dc, uint8_t b0) {
     gpio_put(VT_DC, !dc);
     gpio_put(VT_CS1, LOW);
@@ -47,28 +67,15 @@ static void rawsetall(bool dc, uint8_t b0) {
     gpio_put(VT_DC, HIGH);
 }
 
+/**
+ *  Send command to a specific controller.
+ */
 static void rawset(bool dc, unsigned int cs, uint8_t b0) {
     gpio_put(VT_DC, !dc);
     gpio_put(cs, LOW);
     spi_write_blocking(VT_SPI_MOD, &b0, 1);
     gpio_put(cs, HIGH);
     gpio_put(VT_DC, HIGH);
-}
-
-static void clear(uint8_t color) {
-    rawsetall(COMREG, 0x21);
-    rawsetall(COMREG, 0);
-    rawsetall(COMREG, 79);
-    rawsetall(COMREG, 0x22);
-    rawsetall(COMREG, 0);
-    rawsetall(COMREG, 159);
-    gpio_put(VT_CS1, LOW);
-    gpio_put(VT_CS2, LOW);
-    for (int i = 0; i < 80 * 160; i++) {
-        spi_write_blocking(VT_SPI_MOD, &color, 1);
-    }
-    gpio_put(VT_CS1, HIGH);
-    gpio_put(VT_CS2, HIGH);
 }
 
 void display_init() {
@@ -103,19 +110,18 @@ void display_init() {
     // Set Portrait Addressing Mode
     rawsetall(COMREG, 0x25); rawsetall(COMREG, 0x00); // normal
     // Set Contrast Control
-    rawsetall(COMREG, 0x81); rawsetall(COMREG, 0x6b);
+    rawsetall(COMREG, 0x81); rawsetall(COMREG, 0x40);
     // Set Segment Remap
     rawset(COMREG, VT_CS1, 0xa0); // column address 0  is mapped to SEG0
     rawset(COMREG, VT_CS2, 0xa1); // column address 97 is mapped to SEG0
     // Set Display Start Line
-    rawsetall(COMREG, 0xa2); rawsetall(COMREG, deltay);
+    rawsetall(COMREG, 0xa2); rawsetall(COMREG, lineaddr);
     // Resume to RAM content display
     rawsetall(COMREG, 0xa4);
     // Disable Panorama Mode
     rawsetall(COMREG, 0xa6);
     // Set MUX Ratio
     rawsetall(COMREG, 0xa8); rawsetall(COMREG, 0x83); // 1/132 duty
-    // rawsetall(COMREG, 0xa8); rawsetall(COMREG, 0x10); // 1/132 duty
     // Select external or internal IREF
     rawsetall(COMREG, 0xad); rawsetall(COMREG, 0x10); // internal IREF during display ON
     // Set Pre-charge voltage
@@ -140,186 +146,124 @@ void display_init() {
     rawsetall(COMREG, 0xbd); rawsetall(COMREG, 0x03);
     // Set VCOMH
     rawsetall(COMREG, 0xdb); rawsetall(COMREG, 0x30);
-    // clear(0x00);
     // Display on
     rawsetall(COMREG, 0xaf);
 }
 
-#define GLYPH(c) (fontdata + (c >= 32 && c < 128 ? (size_t) ((c << 3) - 256) : 0))
-#define MEMY(y) ((y * 8 + deltay) % 160)
-
-extern unsigned char fontdata[];
-
-uint8_t vtattr_cap = VTA_INVERSE | VTA_UNDERLINE;
-
+/**
+ *  Clear num lines starting at line y. They are cleared for the full width for the display. A request to clear zero
+ *  lines should be handled.
+ */
 void clear_lines(int8_t y, int8_t ct) {
+    // TODO slow - rewrite
     for (uint8_t i = 0; i < ct; i++) {
         clear_across(y+i, 0, VT_RIGHT + 1);
     }
 }
 
+/**
+ *  Clear num characters across from y,x. The request will never span more than the one line. The normal case is from x
+ *  to the right hand side of the display. A request to clear zero characters should be handled.
+ */
 void clear_across(int8_t y, int8_t x, int16_t l) {
-    // TODO rewrite
+    // TODO slow - rewrite
     uint8_t x2 = x + l;
     for (size_t i = 0; i < l; i++) {
         plot_char(y, x+i, 0x20);
     }
 }
 
-void cursor_off(void) {}
+/**
+ *  Hide the cursor, whether in hardware or software. If necessary restore any characters or attributes changed by
+ *  cursor_on(). This routine can be a no-op if there is a hardware cursor and updating the display does not affect it.
+ */
+void cursor_off(void) { }
 
-void cursor_on(int8_t y, int8_t x) {}
+/**
+ *  Turn the cursor back on at x,y. Ensure that any data that is needed to restore the display is saved so that
+ *  cursor_off() can use it.
+ *
+ *  The following methods will only be invoked between a cursor_off() and a cursor_on()
+ */
+void cursor_on(int8_t y, int8_t x) { }
+
+/**
+ *  Disable the cursor even if it is a hardware cursor. This is used to indicate that the user has specifically disabled
+ *  the cursor, rather than indicating a request to hide the cursor for a display update.
+ */
 void cursor_disable(void) {}
 
+/**
+ *  Scroll the screen up (normal scroll). The bottom line does not need to be cleared. Hardware scrolling can be used if
+ *  present.
+ */
 void scroll_up(void) {
-    deltay = (deltay + 8) % 160;
+    // TODO maybe we are better off disabling 4 COM lines
+    clear_lines(0, 1);
+    lineaddr = (lineaddr + 8) % 160;
     rawsetall(COMREG, 0xa2);
-    rawsetall(COMREG, deltay);
+    rawsetall(COMREG, lineaddr);
 }
 
+/**
+ *  Scroll the screen down (reverse scroll). The top line does not need to be cleared. Hardware scrolling can be used if
+ *  present.
+ */
 void scroll_down(void) {
-    deltay = (deltay + 160 - 8) % 160;
+    lineaddr = (lineaddr + 160 - 8) % 160;
     rawsetall(COMREG, 0xa2);
-    rawsetall(COMREG, deltay);
+    rawsetall(COMREG, lineaddr);
 }
 
+/**
+ *  Make a beep noise, or perform a visual bell (eg inverting the display momentarily if the hardware supports it).
+ */
 void do_beep(void) {}
+
+/**
+ *  Notify on VT52 mode events.
+ */
 void vtattr_notify(void) {}
 
+/**
+ *  Plot a character onto the display at y,x. Currently c is in the range 0-255 but that may change in future to
+ *  accomodate non-ascii displays and systems with additional graphic ranges.
+ */
 void plot_char(int8_t y, int8_t x, uint16_t c) {
-    static uint8_t cmd[6] = { 0x21, 0, 0, 0x22, 0, 159 };
-    uint16_t *m4g16 = (uint16_t *) m4;
-    uint16_t raw[16];
     unsigned int cs;
+    uint16_t *m4g16 = (uint16_t *) m4;
+    uint8_t *bmp1 = GLYPH(c); // monochrome
+    uint16_t bmp4[16];        // grayscale
+    uint8_t cmd[6] = {
+        // col address region
+        0x21, 0, 0,
+        // row address region
+        0x22, 0, 159
+    };
+    // region select display segment
     if (x < 20) {
         cs = VT_CS1;
     } else {
         x -= 20;
         cs = VT_CS2;
     }
-    cmd[1] = x * 4;
-    cmd[2] = x * 4 + 3;
-    cmd[4] = MEMY(y);
+    cmd[1] = x * 4;     // x1
+    cmd[2] = x * 4 + 3; // x2
+    cmd[4] = ROWADJUST(y);   // y1
     gpio_put(VT_DC, LOW);
     gpio_put(cs, LOW);
     spi_write_blocking(VT_SPI_MOD, cmd, 6);
     gpio_put(VT_DC, HIGH);
-    uint8_t *bmp = GLYPH(c);
-    for (size_t i = 0; i < 16; i+=2, bmp++) {
-        size_t un = ((*bmp) & 0xf0) >> 4;
-        size_t ln = (*bmp) & 0x0f;
-        raw[i] = m4g16[un];
-        raw[i + 1] = m4g16[ln];
+    for (size_t i = 0; i < 16; i+=2, bmp1++) {
+        // convert monochrome to 4-bit grayscale
+        // do this by transposing the nibbles
+        size_t un = (*bmp1 & 0xf0) >> 4;
+        size_t ln = *bmp1 & 0x0f;
+        bmp4[i] = m4g16[un];
+        bmp4[i + 1] = m4g16[ln];
     }
-    spi_write_blocking(VT_SPI_MOD, (uint8_t *) raw, 32);
+    // FIXME fighting linker: RAM overflow
+    // spi_write16_blocking(VT_SPI_MOD, raw, 16);
+    spi_write_blocking(VT_SPI_MOD, (uint8_t *) bmp4, 32);
     gpio_put(cs, HIGH);
 }
-
-// uint8_t vtattr;
-// uint8_t vtattr_cap;
-// uint8_t vtink;
-// uint8_t vtpaper;
-// struct vt_repeat keyrepeat;
-
-/*
-static u8g2_t u8g2;
-
-static uint8_t u8x8_byte_pico_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
-    uint8_t *data;
-    switch (msg) {
-        case U8X8_MSG_BYTE_SEND:
-            data = (uint8_t *)arg_ptr;
-            spi_write_blocking(VT_SPI_MOD, data, arg_int);
-            break;
-        case U8X8_MSG_BYTE_INIT:
-            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
-            break;
-        case U8X8_MSG_BYTE_SET_DC:
-            u8x8_gpio_SetDC(u8x8, arg_int);
-            break;
-        case U8X8_MSG_BYTE_START_TRAlenafortgirlNSFER:
-            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_enable_level);
-            u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO,u8x8->display_info->post_chip_enable_wait_ns, NULL);
-            break;
-        case U8X8_MSG_BYTE_END_TRANSFER:
-            u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->pre_chip_disable_wait_ns, NULL);
-            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
-            break;
-        default:
-            return 0;
-    }
-    return 1;
-}
-
-static uint8_t u8x8_gpio_and_delay_pico(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
-    switch (msg) {
-        case U8X8_MSG_GPIO_AND_DELAY_INIT: 
-            spi_init(VT_SPI_MOD, VT_SPI_SPEED);
-            gpio_init(VT_SCL);
-            gpio_init(VT_SDA);
-            gpio_init(VT_RES);
-            gpio_init(VT_DC);
-            gpio_init(VT_CS1);
-            gpio_init(VT_CS2);
-            gpio_set_function(VT_SCL, GPIO_FUNC_SPI);
-            gpio_set_function(VT_SDA, GPIO_FUNC_SPI);
-            gpio_set_function(VT_RES, GPIO_FUNC_SIO);
-            gpio_set_function(VT_DC, GPIO_FUNC_SIO);
-            gpio_set_function(VT_CS1, GPIO_FUNC_SIO);
-            gpio_set_function(VT_CS2, GPIO_FUNC_SIO);
-            gpio_set_dir(VT_RES, true);
-            gpio_set_dir(VT_DC, true);
-            gpio_set_dir(VT_CS1, true);
-            gpio_set_dir(VT_CS2, true);
-            gpio_put(VT_RES, 1);
-            gpio_put(VT_CS1, 1);
-            gpio_put(VT_CS2, 0);
-            gpio_put(VT_DC, 0);
-            break;
-        case U8X8_MSG_DELAY_NANO: // delay arg_int * 1 nano second
-            sleep_us(arg_int); // 1000 times slower, though generally fine in practice given rp2040 has no `sleep_ns()`
-            break;
-        case U8X8_MSG_DELAY_100NANO: // delay arg_int * 100 nano seconds
-            sleep_us(arg_int);
-            break;
-        case U8X8_MSG_DELAY_10MICRO: // delay arg_int * 10 micro seconds
-            sleep_us(arg_int * 10);
-            break;
-        case U8X8_MSG_DELAY_MILLI: // delay arg_int * 1 milli second
-            sleep_ms(arg_int);
-            break;
-        case U8X8_MSG_GPIO_CS: // CS (chip select) pin: Output level in arg_int
-            gpio_put(VT_CS1, arg_int);
-            break;
-        case U8X8_MSG_GPIO_DC: // DC (data/cmd, A0, register select) pin: Output level
-            gpio_put(VT_DC, arg_int);
-            break;
-        case U8X8_MSG_GPIO_RESET: // Reset pin: Output level in arg_int
-            gpio_put(VT_RES, arg_int);  // printf("U8X8_MSG_GPIO_RESET %d\n", arg_int);
-            break;
-        default:
-            u8x8_SetGPIOResult(u8x8, 1); // default return value
-            break;
-    }
-    return 1;
-}
-
-static void draw_display() {
-//    char hey[12] = "Hello world";
-//    u8g2_ClearBuffer(&u8g2);
-//    u8g2_ClearDisplay(&u8g2);
-//    u8g2_SetDrawColor(&u8g2, 1);
-//    u8g2_SetFont(&u8g2, u8g2_font_5x8_tf);
-//    u8g2_DrawStr(&u8g2, 10, 10, hey);
-//    u8g2_UpdateDisplay(&u8g2);
-}
-
-void display_init() {
-    u8g2_Setup_ssd1320_160x132_f(&u8g2, U8G2_R0, u8x8_byte_pico_hw_spi, u8x8_gpio_and_delay_pico);
-    u8g2_SetFont(&u8g2, u8g2_font_5x8_mr);
-    // u8g2_InitDisplay(&u8g2); // send init sequence to the display, display is in sleep mode after this,
-    // u8g2_SetPowerSave(&u8g2, 0);
-    // draw_display();
-}
-*/
-
