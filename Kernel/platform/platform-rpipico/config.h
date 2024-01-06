@@ -41,13 +41,11 @@
 
 #define CONFIG_VT
 
-#define VT_WIDTH 20
-#define VT_HEIGHT 4
+#define VT_RIGHT 39
+#define VT_BOTTOM 15
 
-#define VT_RIGHT 19
-#define VT_BOTTOM 3
-
-#undef CONFIG_FONT8X8
+#define CONFIG_FONT8X8
+#define CONFIG_FONT8X8SMALL
 
 /* Program layout */
 

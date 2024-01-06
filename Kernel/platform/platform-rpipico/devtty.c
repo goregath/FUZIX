@@ -44,26 +44,8 @@ void tty_sleeping(uint_fast8_t minor) {}
 void tty_data_consumed(uint_fast8_t minor) {}
 
 void tty_setup(uint_fast8_t minor, uint_fast8_t flags) {
-    if (minor == 0) {
+    if (minor == 1) {
         display_init();
         vtinit();
     }
 }
-
-uint8_t vtattr_cap = VTA_INVERSE | VTA_UNDERLINE;
-
-void clear_lines(int8_t y, int8_t ct) {}
-void clear_across(int8_t y, int8_t x, int16_t l) {}
-void cursor_off(void) {}
-void cursor_on(int8_t y, int8_t x) {}
-void cursor_disable(void) {}
-void scroll_up(void) {}
-void scroll_down(void) {}
-void plot_char(int8_t y, int8_t x, uint16_t c) {}
-void do_beep(void) {}
-void vtattr_notify(void) {}
-// uint8_t vtattr;
-// uint8_t vtattr_cap;
-// uint8_t vtink;
-// uint8_t vtpaper;
-// struct vt_repeat keyrepeat;

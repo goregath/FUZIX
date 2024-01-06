@@ -32,6 +32,7 @@ add_executable(fuzix
 	tricks.S
 	core1.c
 	usbdescriptors.c
+	font.c
 	../../dev/blkdev.c
 	../../dev/mbr.c
 	../../dev/devsd_discard.c
@@ -80,9 +81,3 @@ target_link_libraries(fuzix
 pico_set_float_implementation(fuzix none)
 pico_set_double_implementation(fuzix none)
 pico_add_extra_outputs(fuzix)
-
-target_include_directories(fuzix PRIVATE u8g2/csrc)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections -Wl,--gc-sections")
-file(GLOB U8G2_SRC u8g2/csrc/*.c)
-add_library(u8g2 ${U8G2_SRC})
-target_link_libraries(fuzix u8g2)
