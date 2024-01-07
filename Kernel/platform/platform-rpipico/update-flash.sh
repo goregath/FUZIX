@@ -90,14 +90,15 @@ chmod 0755 rc
 cd /usr/bin
 bget ../../../Applications/MWC/cmd/expr
 bget ../../../Applications/MWC/cmd/find
-bget ../../../Applications/MWC/cmd/make
+# bget ../../../Applications/MWC/cmd/make
 chmod 0755 expr
 chmod 0755 find
-chmod 0755 make
+# chmod 0755 make
 
 cd /bin
 bget ../../../Applications/util/banner
 bget ../../../Applications/util/basename
+bget ../../../Applications/util/border
 bget ../../../Applications/util/bd
 bget ../../../Applications/util/blkdiscard
 bget ../../../Applications/util/cal
@@ -170,6 +171,7 @@ bget ../../../Applications/util/touch
 bget ../../../Applications/util/tr
 bget ../../../Applications/util/true
 bget ../../../Applications/util/umount
+bget ../../../Applications/util/uname
 bget ../../../Applications/util/uniq
 bget ../../../Applications/util/uptime
 bget ../../../Applications/util/uud
@@ -182,7 +184,9 @@ bget ../../../Applications/util/whoami
 bget ../../../Applications/util/write
 bget ../../../Applications/util/xargs
 bget ../../../Applications/util/yes
+chmod 0755 banner
 chmod 0755 basename
+chmod 0755 border
 chmod 0755 bd
 chmod 0755 blkdiscard
 chmod 0755 cal
@@ -253,6 +257,7 @@ chmod 0755 touch
 chmod 0755 tr
 chmod 0755 true
 chmod 0755 umount
+chmod 0755 uname
 chmod 0755 uniq
 chmod 0755 uptime
 chmod 0755 uud
