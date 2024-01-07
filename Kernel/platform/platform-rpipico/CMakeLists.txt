@@ -32,7 +32,7 @@ add_executable(fuzix
 	tricks.S
 	core1.c
 	usbdescriptors.c
-	font.c
+	font4x8.c
 	../../dev/blkdev.c
 	../../dev/mbr.c
 	../../dev/devsd_discard.c

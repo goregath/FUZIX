@@ -16,17 +16,41 @@
 #include "config.h"
 #include "ssd1320z2.h"
 
+#ifndef VT_WIDTH
+#define VT_WIDTH (VT_RIGHT + 1)
+#endif
+
+#ifndef VT_HEIGHT
+#define VT_HEIGHT (VT_BOTTOM + 1)
+#endif
+
+#define COMS 80
+#define SEGS 160
+
+#define WIDTH  (COMS * 2)
+#define HEIGHT 132
+
+#define TOTAL_WIDTH  (WIDTH * 2)
+#define TOTAL_HEIGHT HEIGHT
+
+#define ADDRX(col) (col * FONT_WIDTH / 2 % COMS)
+#define ADDRY(row) ((row * FONT_HEIGHT + lineaddr) % SEGS)
+#define CHIP(col)  (col < VT_WIDTH / 2 ? VT_CS1 : VT_CS2)
+
 #define COMREG true
-#define PIXBUF false
 
 #define HIGH true
-#define LOW false
+#define LOW  false
 
-#define GLYPH(c) (fontdata + (c >= 32 && c < 128 ? (size_t) ((c << 3) - 256) : 0))
-#define ROWADJUST(y) ((y * 8 + lineaddr) % 160)
+#define FONT_WIDTH  4
+#define FONT_HEIGHT 8
 
-// Borrowed linux font 8x8 pixel horizontal bitmap
+// TODO bitmasking ?
+#define GLYPH(c) ((c > 31 && c < 127 ? fontdata + (size_t) ((c - 32) * FONT_WIDTH) : invalidchar))
+
+// Font 4x8 monochrome horizontal
 extern unsigned char fontdata[];
+unsigned char invalidchar[] = { 0x0e, 0xaa, 0xaa, 0xae };
 
 // VT52 capabilities
 uint8_t vtattr_cap = 0; // VTA_INVERSE | VTA_UNDERLINE;
@@ -200,7 +224,7 @@ void cursor_disable(void) {}
 void scroll_up(void) {
     // TODO maybe we are better off disabling 4 COM lines
     clear_lines(0, 1);
-    lineaddr = (lineaddr + 8) % 160;
+    lineaddr = (lineaddr + FONT_HEIGHT) % SEGS;
     rawsetall(COMREG, 0xa2);
     rawsetall(COMREG, lineaddr);
 }
@@ -210,7 +234,7 @@ void scroll_up(void) {
  *  present.
  */
 void scroll_down(void) {
-    lineaddr = (lineaddr + 160 - 8) % 160;
+    lineaddr = (lineaddr + SEGS - FONT_HEIGHT) % SEGS;
     rawsetall(COMREG, 0xa2);
     rawsetall(COMREG, lineaddr);
 }
@@ -229,41 +253,29 @@ void vtattr_notify(void) {}
  *  Plot a character onto the display at y,x. Currently c is in the range 0-255 but that may change in future to
  *  accomodate non-ascii displays and systems with additional graphic ranges.
  */
-void plot_char(int8_t y, int8_t x, uint16_t c) {
-    unsigned int cs;
-    uint16_t *m4g16 = (uint16_t *) m4;
-    uint8_t *bmp1 = GLYPH(c); // monochrome
-    uint16_t bmp4[16];        // grayscale
+void plot_char(int8_t row, int8_t col, uint16_t c) {
+    uint8_t txbuf[FONT_WIDTH * FONT_HEIGHT * 4 / 8]; // grayscale
+    uint8_t *bmp = GLYPH(c);  // monochrome
+    uint8_t x = ADDRX(col);
+    uint8_t y = ADDRY(row);
+    uint8_t cs = CHIP(col);
     uint8_t cmd[6] = {
-        // col address region
-        0x21, 0, 0,
-        // row address region
-        0x22, 0, 159
+        (/* COMADDR */ 0x21), x, x + FONT_WIDTH / 2 - 1,
+        (/* SEGADDR */ 0x22), y, 159
     };
-    // region select display segment
-    if (x < 20) {
-        cs = VT_CS1;
-    } else {
-        x -= 20;
-        cs = VT_CS2;
-    }
-    cmd[1] = x * 4;     // x1
-    cmd[2] = x * 4 + 3; // x2
-    cmd[4] = ROWADJUST(y);   // y1
     gpio_put(VT_DC, LOW);
     gpio_put(cs, LOW);
     spi_write_blocking(VT_SPI_MOD, cmd, 6);
     gpio_put(VT_DC, HIGH);
-    for (size_t i = 0; i < 16; i+=2, bmp1++) {
+    uint16_t *m4g16 = (uint16_t *) m4;
+    uint16_t *u16 = (uint16_t *) txbuf;
+    uint16_t *l16 = 1 + (uint16_t *) txbuf;
+    for (size_t i = FONT_WIDTH * FONT_HEIGHT / 8; i > 0; --i, ++bmp, u16+=2, l16+=2) {
         // convert monochrome to 4-bit grayscale
         // do this by transposing the nibbles
-        size_t un = (*bmp1 & 0xf0) >> 4;
-        size_t ln = *bmp1 & 0x0f;
-        bmp4[i] = m4g16[un];
-        bmp4[i + 1] = m4g16[ln];
+        *u16 = m4g16[(*bmp & 0xf0) >> 4];
+        *l16 = m4g16[*bmp & 0x0f];
     }
-    // FIXME fighting linker: RAM overflow
-    // spi_write16_blocking(VT_SPI_MOD, raw, 16);
-    spi_write_blocking(VT_SPI_MOD, (uint8_t *) bmp4, 32);
+    spi_write_blocking(VT_SPI_MOD, txbuf, sizeof(txbuf));
     gpio_put(cs, HIGH);
 }
