@@ -7,7 +7,6 @@
 // vim: sw=4:ts=4
 
 #include "picosdk.h"
-#include <pico/time.h>
 #include <hardware/spi.h>
 
 #include <kernel.h>
@@ -48,9 +47,11 @@
 // TODO bitmasking ?
 #define GLYPH(c) ((c > 31 && c < 127 ? fontdata + (size_t) ((c - 32) * FONT_WIDTH) : invalidchar))
 
+#define COLORMASK(a) (a & 0x8 ? -1 : 0x8888)
+
 // Font 4x8 monochrome horizontal
 extern unsigned char fontdata[];
-unsigned char invalidchar[] = { 0x0e, 0xaa, 0xaa, 0xae };
+const unsigned char invalidchar[] = { 0x0e, 0xaa, 0xaa, 0xae };
 
 // VT52 capabilities
 uint8_t vtattr_cap = 0; // VTA_INVERSE | VTA_UNDERLINE;
@@ -142,7 +143,7 @@ void display_init() {
     rawsetall(COMREG, 0xa2); rawsetall(COMREG, lineaddr);
     // Resume to RAM content display
     rawsetall(COMREG, 0xa4);
-    // Disable Panorama Mode
+    // Normal display mode
     rawsetall(COMREG, 0xa6);
     // Set MUX Ratio
     rawsetall(COMREG, 0xa8); rawsetall(COMREG, 0x83); // 1/132 duty
@@ -215,14 +216,13 @@ void cursor_on(int8_t y, int8_t x) { }
  *  Disable the cursor even if it is a hardware cursor. This is used to indicate that the user has specifically disabled
  *  the cursor, rather than indicating a request to hide the cursor for a display update.
  */
-void cursor_disable(void) {}
+void cursor_disable(void) { }
 
 /**
  *  Scroll the screen up (normal scroll). The bottom line does not need to be cleared. Hardware scrolling can be used if
  *  present.
  */
 void scroll_up(void) {
-    // TODO maybe we are better off disabling 4 COM lines
     clear_lines(0, 1);
     lineaddr = (lineaddr + FONT_HEIGHT) % SEGS;
     rawsetall(COMREG, 0xa2);
@@ -254,8 +254,9 @@ void vtattr_notify(void) {}
  *  accomodate non-ascii displays and systems with additional graphic ranges.
  */
 void plot_char(int8_t row, int8_t col, uint16_t c) {
-    uint8_t txbuf[FONT_WIDTH * FONT_HEIGHT * 4 / 8]; // grayscale
-    uint8_t *bmp = GLYPH(c);  // monochrome
+    static uint8_t txbuf[FONT_WIDTH * FONT_HEIGHT * 4 / 8]; // grayscale
+    const uint8_t *bmp = GLYPH(c);  // monochrome
+    uint16_t msk = COLORMASK(vtink);
     uint8_t x = ADDRX(col);
     uint8_t y = ADDRY(row);
     uint8_t cs = CHIP(col);
@@ -273,8 +274,8 @@ void plot_char(int8_t row, int8_t col, uint16_t c) {
     for (size_t i = FONT_WIDTH * FONT_HEIGHT / 8; i > 0; --i, ++bmp, u16+=2, l16+=2) {
         // convert monochrome to 4-bit grayscale
         // do this by transposing the nibbles
-        *u16 = m4g16[(*bmp & 0xf0) >> 4];
-        *l16 = m4g16[*bmp & 0x0f];
+        *u16 = m4g16[(*bmp & 0xf0) >> 4] & msk;
+        *l16 = m4g16[*bmp & 0x0f] & msk;
     }
     spi_write_blocking(VT_SPI_MOD, txbuf, sizeof(txbuf));
     gpio_put(cs, HIGH);
