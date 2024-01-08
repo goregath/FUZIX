@@ -75,17 +75,25 @@ chmod 755 init
 
 cd /etc
 bget ../../../Standalone/filesystem-src/templates/issue
-bget ../../../Standalone/filesystem-src/etc-files/motd
-bget ../../../Standalone/filesystem-src/etc-files/passwd
-bget ../../../Standalone/filesystem-src/etc-files/inittab
+bget image/etc/group
+bget image/etc/inittab
+bget image/etc/motd
+bget image/etc/mtab
+bget image/etc/passwd
+bget image/etc/rc
+bget image/etc/rc.halt
+bget image/etc/rc.reboot
 bget image/etc/termcap
-bget ../../../Standalone/filesystem-src/etc-files/rc
 chmod 0644 issue
-chmod 0644 motd
-chmod 0644 passwd
+chmod 0644 group
 chmod 0644 inittab
-chmod 0644 termcap
+chmod 0644 motd
+chmod 0644 mtab
+chmod 0644 passwd
 chmod 0755 rc
+chmod 0755 rc.halt
+chmod 0755 rc.reboot
+chmod 0644 termcap
 
 cd /usr/bin
 bget ../../../Applications/MWC/cmd/expr
@@ -131,7 +139,7 @@ bget ../../../Applications/util/grep
 bget ../../../Applications/util/head
 bget ../../../Applications/util/id
 bget ../../../Applications/util/kill
-bget ../../../Applications/util/ll
+# bget ../../../Applications/util/ll
 bget ../../../Applications/util/logname
 bget ../../../Applications/util/ls
 bget ../../../Applications/util/man
@@ -160,6 +168,7 @@ bget ../../../Applications/util/sleep
 # bget ../../../Applications/util/ssh
 bget ../../../Applications/util/sort
 bget ../../../Applications/util/stty
+bget ../../../Applications/util/substroot
 bget ../../../Applications/util/sum
 bget ../../../Applications/util/su
 bget ../../../Applications/util/swapon
@@ -219,7 +228,7 @@ chmod 0755 grep
 chmod 0755 head
 chmod 0755 id
 chmod 0755 kill
-chmod 0755 ll
+# chmod 0755 ll
 chmod 0755 logname
 chmod 0755 ls
 chmod 0755 man
@@ -247,6 +256,7 @@ chmod 0755 sleep
 chmod 0755 sort
 # chmod 0755 ssh
 chmod 0755 stty
+chmod 0755 substroot
 chmod 0755 sum
 chmod 0755 swapon
 chmod 0755 sync
@@ -274,6 +284,7 @@ chmod 4755 passwd
 chmod 4755 su
 ln cp mv
 ln cp ln
+ln reboot halt
 
 bget ../../../Applications/V7/cmd/sh/sh
 chmod 0755 sh
