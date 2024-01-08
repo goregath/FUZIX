@@ -6,7 +6,7 @@ include(pico_sdk_import.cmake)
 project(fuzix C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
-set(PICO_COPY_TO_RAM 1)
+# set(PICO_COPY_TO_RAM 1)
 
 pico_sdk_init()
 
@@ -30,8 +30,8 @@ add_executable(fuzix
 	ssd1320z2.c
 	swapper.c
 	tricks.S
-	core1.c
-	usbdescriptors.c
+    # core1.c
+    # usbdescriptors.c
 	font4x8.c
 	../../dev/blkdev.c
 	../../dev/mbr.c
@@ -70,12 +70,12 @@ add_executable(fuzix
 
 target_link_libraries(fuzix
 	pico_stdlib
-	pico_multicore
+    # pico_multicore
 	hardware_flash
 	hardware_spi
 	hardware_uart
-	tinyusb_device_unmarked
-	tinyusb_board
+    # tinyusb_device_unmarked
+    # tinyusb_board
 )
 
 pico_set_float_implementation(fuzix none)

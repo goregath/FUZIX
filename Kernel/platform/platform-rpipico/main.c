@@ -4,7 +4,7 @@
 #include "kernel-armm0.def"
 #include "globals.h"
 #include "printf.h"
-#include "core1.h"
+#include <hardware/sync.h>
 
 //the led that indicates power
 //The on board one is pin 25
@@ -47,7 +47,7 @@ void syscall_handler(struct svc_frame* eh)
 
 int main(void)
 {
-    core1_init();
+    tty_rawinit();
 
 	if ((U_DATA__U_SP_OFFSET != offsetof(struct u_data, u_sp)) ||
 		(U_DATA__U_PTAB_OFFSET != offsetof(struct u_data, u_ptab)) ||
