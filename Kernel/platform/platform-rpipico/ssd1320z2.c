@@ -44,10 +44,14 @@
 #define FONT_WIDTH  4
 #define FONT_HEIGHT 8
 
+#define NORMAL 0x8888
+#define BRIGHT 0xffff
+
 // TODO bitmasking ?
 #define GLYPH(c) ((c > 31 && c < 127 ? fontdata + (size_t) ((c - 32) * FONT_WIDTH) : invalidchar))
 
-#define COLORMASK(a) (a & 0x8 ? -1 : 0x8888)
+#define COLOR(a) (a & 0x7 ? 0xffff : 0)
+#define MASK(a) (COLOR(a) & (a & 0x8 ? BRIGHT : NORMAL))
 
 // Font 4x8 monochrome horizontal
 extern unsigned char fontdata[];
@@ -78,6 +82,8 @@ static const uint8_t m4[] = {
     0xff, 0x0f,
     0xff, 0xff,
 };
+
+static uint16_t *m4g16 = (uint16_t *) m4;
 
 /**
  *  Send command to all display controllers.
@@ -256,7 +262,9 @@ void vtattr_notify(void) {}
 void plot_char(int8_t row, int8_t col, uint16_t c) {
     static uint8_t txbuf[FONT_WIDTH * FONT_HEIGHT * 4 / 8]; // grayscale
     const uint8_t *bmp = GLYPH(c);  // monochrome
-    uint16_t msk = COLORMASK(vtink);
+    // TODO move to vtattr_notify()
+    uint16_t fg = MASK(vtink);
+    uint16_t bg = MASK(vtpaper);
     uint8_t x = ADDRX(col);
     uint8_t y = ADDRY(row);
     uint8_t cs = CHIP(col);
@@ -264,19 +272,21 @@ void plot_char(int8_t row, int8_t col, uint16_t c) {
         (/* COMADDR */ 0x21), x, x + FONT_WIDTH / 2 - 1,
         (/* SEGADDR */ 0x22), y, 159
     };
+    uint16_t *u16 = (uint16_t *) txbuf;
+    uint16_t *l16 = 1 + (uint16_t *) txbuf;
+    memset(txbuf, bg, sizeof(txbuf));
+    for (size_t i = FONT_WIDTH * FONT_HEIGHT / 8; i > 0; --i, ++bmp, u16+=2, l16+=2) {
+        // convert monochrome to 4-bit grayscale
+        uint16_t m1 = m4g16[(*bmp & 0xf0) >> 4];
+        uint16_t m2 = m4g16[*bmp & 0x0f];
+        // apply "color" information
+        *u16 = (~m1 & bg) | (m1 & fg);
+        *l16 = (~m2 & bg) | (m2 & fg);
+    }
     gpio_put(VT_DC, LOW);
     gpio_put(cs, LOW);
     spi_write_blocking(VT_SPI_MOD, cmd, 6);
     gpio_put(VT_DC, HIGH);
-    uint16_t *m4g16 = (uint16_t *) m4;
-    uint16_t *u16 = (uint16_t *) txbuf;
-    uint16_t *l16 = 1 + (uint16_t *) txbuf;
-    for (size_t i = FONT_WIDTH * FONT_HEIGHT / 8; i > 0; --i, ++bmp, u16+=2, l16+=2) {
-        // convert monochrome to 4-bit grayscale
-        // do this by transposing the nibbles
-        *u16 = m4g16[(*bmp & 0xf0) >> 4] & msk;
-        *l16 = m4g16[*bmp & 0x0f] & msk;
-    }
     spi_write_blocking(VT_SPI_MOD, txbuf, sizeof(txbuf));
     gpio_put(cs, HIGH);
 }
