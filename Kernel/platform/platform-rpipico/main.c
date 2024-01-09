@@ -49,28 +49,28 @@ int main(void)
 {
     tty_rawinit();
 
-	if ((U_DATA__U_SP_OFFSET != offsetof(struct u_data, u_sp)) ||
-		(U_DATA__U_PTAB_OFFSET != offsetof(struct u_data, u_ptab)) ||
-		(P_TAB__P_PID_OFFSET != offsetof(struct p_tab, p_pid)) ||
+    if ((U_DATA__U_SP_OFFSET != offsetof(struct u_data, u_sp)) ||
+        (U_DATA__U_PTAB_OFFSET != offsetof(struct u_data, u_ptab)) ||
+        (P_TAB__P_PID_OFFSET != offsetof(struct p_tab, p_pid)) ||
         (P_TAB__P_STATUS_OFFSET != offsetof(struct p_tab, p_status)) ||
         (UDATA_SIZE_ASM != UDATA_SIZE))
-	{
-		kprintf("U_DATA__U_SP = %d\n", offsetof(struct u_data, u_sp));
-		kprintf("U_DATA__U_PTAB = %d\n", offsetof(struct u_data, u_ptab));
-		kprintf("P_TAB__P_PID_OFFSET = %d\n", offsetof(struct p_tab, p_pid));
-		kprintf("P_TAB__P_STATUS_OFFSET = %d\n", offsetof(struct p_tab, p_status));
-		panic("bad offsets");
-	}
+    {
+        kprintf("U_DATA__U_SP = %d\n", offsetof(struct u_data, u_sp));
+        kprintf("U_DATA__U_PTAB = %d\n", offsetof(struct u_data, u_ptab));
+        kprintf("P_TAB__P_PID_OFFSET = %d\n", offsetof(struct p_tab, p_pid));
+        kprintf("P_TAB__P_STATUS_OFFSET = %d\n", offsetof(struct p_tab, p_status));
+        panic("bad offsets");
+    }
 
-	ramsize = (SRAM_END - SRAM_BASE) / 1024;
-	procmem = USERMEM / 1024;
-	//turn on power led
-	gpio_init(POWER_LED);
-	gpio_set_dir(POWER_LED, GPIO_OUT);
-	gpio_put(POWER_LED, 1);
-	
-	di();
-	fuzix_main();
+    ramsize = (SRAM_END - SRAM_BASE) / 1024;
+    procmem = USERMEM / 1024;
+    //turn on power led
+    gpio_init(POWER_LED);
+    gpio_set_dir(POWER_LED, GPIO_OUT);
+    gpio_put(POWER_LED, 1);
+
+    di();
+    fuzix_main();
 }
 
 /* vim: sw=4 ts=4 et: */
