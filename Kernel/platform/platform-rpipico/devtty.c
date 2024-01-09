@@ -23,13 +23,13 @@ tcflag_t termios_mask[NUM_DEV_TTY+1] = { 0, _CSYS };
 
 /* Output for the system console (kprintf etc) */
 void kputchar(uint_fast8_t c) {
-    uart_putc(uart_default, c);
     if (c == '\n') vtoutput(&cr, 1);
     vtoutput(&c, 1);
+    uart_putc(uart_default, c);
 }
 
 void tty_putc(uint_fast8_t minor, uint_fast8_t c) {
-	kputchar(c);
+    kputchar(c);
 }
 
 ttyready_t tty_writeready(uint_fast8_t minor) {
@@ -58,7 +58,11 @@ void tty_rawinit(void) {
     gpio_set_function(PICO_DEFAULT_UART_TX_PIN, GPIO_FUNC_UART);
     gpio_set_function(PICO_DEFAULT_UART_RX_PIN, GPIO_FUNC_UART);
     uart_set_translate_crlf(uart_default, true);
-    uart_set_fifo_enabled(uart_default, false);
+    // FIXME Freezes when on uart: char<backspace>
+    // uart_set_fifo_enabled(uart_default, false);
+    // TODO Investigate why this fixes the freeze
+    // TODO Messes up boot message echo
+    uart_set_fifo_enabled(uart_default, true);
 
     int irq = (uart_default == uart0) ? UART0_IRQ : UART1_IRQ;
     irq_set_exclusive_handler(irq, tty_isr);
