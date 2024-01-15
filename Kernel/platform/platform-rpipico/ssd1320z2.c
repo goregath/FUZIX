@@ -50,6 +50,7 @@
 #define BRIGHT 0xffff
 
 #define GLYPH(c) ((c > 31 && c < 127 ? fontdata + (size_t) ((c - 32) * FONT_WIDTH) : invalidchar))
+#define CHAR_ADDR(y,x) (cbuf + VT_WIDTH * y + x)
 
 #define COLOR(a) (a & 0x7 ? 0xffff : 0)
 #define MASK(a) (COLOR(a) & (a & 0x8 ? BRIGHT : NORMAL))
@@ -57,6 +58,9 @@
 // Font 4x8 monochrome horizontal
 extern unsigned char fontdata[];
 const unsigned char invalidchar[] = { 0x0e, 0xaa, 0xaa, 0xae };
+
+// internal character buffer
+static uint8_t cbuf[VT_WIDTH * VT_HEIGHT];
 
 // VT52 capabilities
 uint8_t vtattr_cap = VTA_INVERSE; // | VTA_UNDERLINE;
@@ -96,6 +100,8 @@ static struct {
     bool enabled;
     uint8_t x;
     uint8_t y;
+    uint16_t bg;
+    uint16_t fg;
 } cursor;
 
 static uint_fast8_t display_tick = 0;
@@ -103,7 +109,7 @@ static absolute_time_t timer;
 
 static void display_on();
 static void display_off();
-static void _plot_char(uint8_t row, uint8_t col, uint16_t c);
+static void _plot_char(uint8_t row, uint8_t col, uint16_t c, uint16_t bg, uint16_t fg);
 
 /**                                                                                                                          
 
@@ -226,10 +232,19 @@ void display_update() {
             display_off();
             return;
         }
-        // unsigned char loop[] = "-\\|/-\\|/";
-        // _plot_char(0, VT_RIGHT, loop[tick % (sizeof(loop) - 1)]);
+        // TODO remove spinner
+        unsigned char loop[] = "-\\|/-\\|/";
+        _plot_char(0, VT_RIGHT, loop[display_tick % (sizeof(loop) - 1)], bg, fg);
         if (cursor.enabled) {
-            _plot_char(cursor.y, cursor.x, display_tick % 2 ? VT_CURSOR_CHAR : 0x20);
+            uint16_t cbg, cfg;
+            if (display_tick % 2) {
+                cbg = fg;
+                cfg = bg;
+            } else {
+                cbg = bg;
+                cfg = fg;
+            }
+            _plot_char(cursor.y, cursor.x, *CHAR_ADDR(cursor.y, cursor.x), cbg, cfg);
         }
         ++display_tick;
     }
@@ -263,7 +278,10 @@ void clear_across(int8_t y, int8_t x, int16_t l) {
  *  cursor_on(). This routine can be a no-op if there is a hardware cursor and updating the display does not affect it.
  */
 void cursor_off(void) {
+    cursor.bg = bg;
+    cursor.fg = fg;
     cursor.enabled = false;
+    _plot_char(cursor.y, cursor.x, *CHAR_ADDR(cursor.y, cursor.x), bg, fg);
 }
 
 /**
@@ -291,6 +309,7 @@ void cursor_disable(void) {
  *  present.
  */
 void scroll_up(void) {
+	memmove(cbuf, cbuf + VT_WIDTH, VT_WIDTH * VT_BOTTOM);
     clear_lines(0, 1);
     lineaddr = (lineaddr + FONT_HEIGHT) % SEGS;
     rawsetall(COMREG, 0xa2);
@@ -302,6 +321,7 @@ void scroll_up(void) {
  *  present.
  */
 void scroll_down(void) {
+	memmove(cbuf + VT_WIDTH, cbuf, VT_WIDTH * VT_BOTTOM);
     lineaddr = (lineaddr + SEGS - FONT_HEIGHT) % SEGS;
     rawsetall(COMREG, 0xa2);
     rawsetall(COMREG, lineaddr);
@@ -325,7 +345,7 @@ void vtattr_notify(void) {
     }
 }
 
-static void _plot_char(uint8_t row, uint8_t col, uint16_t c) {
+static void _plot_char(uint8_t row, uint8_t col, uint16_t c, uint16_t bg, uint16_t fg) {
     static uint8_t txbuf[FONT_WIDTH * FONT_HEIGHT * 4 / 8]; // grayscale
     const uint8_t *bmp = GLYPH(c);  // monochrome
     uint8_t x = ADDRX(col);
@@ -351,6 +371,8 @@ static void _plot_char(uint8_t row, uint8_t col, uint16_t c) {
     gpio_put(VT_DC, HIGH);
     spi_write_blocking(VT_SPI_MOD, txbuf, sizeof(txbuf));
     gpio_put(cs, HIGH);
+    // save character to buffer (needed for cursor)
+    *CHAR_ADDR(row, col) = (uint8_t) c;
 }
 
 /**
@@ -358,7 +380,7 @@ static void _plot_char(uint8_t row, uint8_t col, uint16_t c) {
  *  accomodate non-ascii displays and systems with additional graphic ranges.
  */
 void plot_char(int8_t row, int8_t col, uint16_t c) {
-    _plot_char(row, col, c);
+    _plot_char(row, col, c, bg, fg);
     timer_reset();
     if (! display.enabled) {
         display_on();

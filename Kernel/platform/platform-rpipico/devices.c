@@ -17,7 +17,7 @@
 #include <hardware/structs/timer.h>
 #include <ssd1320z2.h>
 
-#define TICK_DIV 200
+#define TICK_DIV 100
 
 struct devsw dev_tab[] =  /* The device driver switch table */
 {
