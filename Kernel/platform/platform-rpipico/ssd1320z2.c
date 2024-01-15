@@ -98,6 +98,7 @@ static struct {
     uint8_t y;
 } cursor;
 
+static uint_fast8_t display_tick = 0;
 static absolute_time_t timer;
 
 static void display_on();
@@ -219,7 +220,6 @@ static void display_on() {
 }
 
 void display_update() {
-    static uint_fast8_t tick = 0;
     if (display.enabled) {
         absolute_time_t now = get_absolute_time();
         if (absolute_time_diff_us(timer, now) > TMOUT_US) {
@@ -229,9 +229,9 @@ void display_update() {
         // unsigned char loop[] = "-\\|/-\\|/";
         // _plot_char(0, VT_RIGHT, loop[tick % (sizeof(loop) - 1)]);
         if (cursor.enabled) {
-            _plot_char(cursor.y, cursor.x, tick % 2 ? VT_CURSOR_CHAR : 0x20);
+            _plot_char(cursor.y, cursor.x, display_tick % 2 ? VT_CURSOR_CHAR : 0x20);
         }
-        ++tick;
+        ++display_tick;
     }
 }
 
