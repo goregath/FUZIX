@@ -29,6 +29,8 @@
 #define WIDTH  (COMS * 2)
 #define HEIGHT 132
 
+#define TMOUT_US 60000000
+
 #define TOTAL_WIDTH  (WIDTH * 2)
 #define TOTAL_HEIGHT HEIGHT
 
@@ -47,7 +49,6 @@
 #define NORMAL 0x8888
 #define BRIGHT 0xffff
 
-// TODO bitmasking ?
 #define GLYPH(c) ((c > 31 && c < 127 ? fontdata + (size_t) ((c - 32) * FONT_WIDTH) : invalidchar))
 
 #define COLOR(a) (a & 0x7 ? 0xffff : 0)
@@ -58,10 +59,13 @@ extern unsigned char fontdata[];
 const unsigned char invalidchar[] = { 0x0e, 0xaa, 0xaa, 0xae };
 
 // VT52 capabilities
-uint8_t vtattr_cap = 0; // VTA_INVERSE | VTA_UNDERLINE;
+uint8_t vtattr_cap = VTA_INVERSE; // | VTA_UNDERLINE;
 
 // Line offset in display memory
 static uint8_t lineaddr = 0;
+
+static uint16_t fg;
+static uint16_t bg;
 
 // Map 4 monochrome pxels to 4x4 bit grayscale
 static const uint8_t m4[] = {
@@ -82,10 +86,26 @@ static const uint8_t m4[] = {
     0xff, 0x0f,
     0xff, 0xff,
 };
-
 static uint16_t *m4g16 = (uint16_t *) m4;
 
-/**
+static struct {
+    bool enabled;
+} display;
+
+static struct {
+    bool enabled;
+    uint8_t x;
+    uint8_t y;
+} cursor;
+
+static absolute_time_t timer;
+
+static void display_on();
+static void display_off();
+static void _plot_char(uint8_t row, uint8_t col, uint16_t c);
+
+/**                                                                                                                          
+
  *  Send command to all display controllers.
  */
 static void rawsetall(bool dc, uint8_t b0) {
@@ -132,8 +152,7 @@ void display_init() {
     gpio_put(VT_CS2, 1);
     gpio_put(VT_DC,  1);
     sleep_ms(1);
-    // Display OFF
-    rawsetall(COMREG, 0xae);
+    display_off();
     // Set Command Lock
     rawsetall(COMREG, 0xfd); rawsetall(COMREG, 0x12);
     // Set Memory Addressing Mode
@@ -141,7 +160,7 @@ void display_init() {
     // Set Portrait Addressing Mode
     rawsetall(COMREG, 0x25); rawsetall(COMREG, 0x00); // normal
     // Set Contrast Control
-    rawsetall(COMREG, 0x81); rawsetall(COMREG, 0x40);
+    rawsetall(COMREG, 0x81); rawsetall(COMREG, 0xf0);
     // Set Segment Remap
     rawset(COMREG, VT_CS1, 0xa0); // column address 0  is mapped to SEG0
     rawset(COMREG, VT_CS2, 0xa1); // column address 97 is mapped to SEG0
@@ -156,7 +175,7 @@ void display_init() {
     // Select external or internal IREF
     rawsetall(COMREG, 0xad); rawsetall(COMREG, 0x10); // internal IREF during display ON
     // Set Pre-charge voltage
-    rawsetall(COMREG, 0xbc); rawsetall(COMREG, 0x1e); // 0.5*VCC (reset)
+     rawsetall(COMREG, 0xbc); rawsetall(COMREG, 0x1e); // 0.5*VCC (reset)
     // Linear LUT
     rawsetall(COMREG, 0xbf);
     // Set COM Output Scan Direction
@@ -167,7 +186,11 @@ void display_init() {
     rawset(COMREG, VT_CS1, 0x0e);
     rawset(COMREG, VT_CS2, 0x92);
     // Set Display Clock Divide Ratio/Oscillator Frequency
-    rawsetall(COMREG, 0xd5); rawsetall(COMREG, 0xc2); // 85Hz
+    // rawsetall(COMREG, 0xd5); rawsetall(COMREG, 0x41); // default
+    // rawsetall(COMREG, 0xd5); rawsetall(COMREG, 0xc2); // 85Hz
+    // rawsetall(COMREG, 0xd5); rawsetall(COMREG, 0x22); // 85Hz
+    // rawsetall(COMREG, 0xd5); rawsetall(COMREG, 0x02); // 85Hz
+    rawsetall(COMREG, 0xd5); rawsetall(COMREG, 0x41); // default
     // Set Pre-charge Period
     rawsetall(COMREG, 0xd9); rawsetall(COMREG, 0x72);
     // Set SEG Pins Hardware Configuration
@@ -177,8 +200,39 @@ void display_init() {
     rawsetall(COMREG, 0xbd); rawsetall(COMREG, 0x03);
     // Set VCOMH
     rawsetall(COMREG, 0xdb); rawsetall(COMREG, 0x30);
-    // Display on
+    display_on();
+}
+
+static void timer_reset() {
+    timer = get_absolute_time();
+}
+
+static void display_off() {
+    rawsetall(COMREG, 0xae);
+    display.enabled = false;
+}
+
+static void display_on() {
     rawsetall(COMREG, 0xaf);
+    display.enabled = true;
+    timer_reset();
+}
+
+void display_update() {
+    static uint_fast8_t tick = 0;
+    if (display.enabled) {
+        absolute_time_t now = get_absolute_time();
+        if (absolute_time_diff_us(timer, now) > TMOUT_US) {
+            display_off();
+            return;
+        }
+        // unsigned char loop[] = "-\\|/-\\|/";
+        // _plot_char(0, VT_RIGHT, loop[tick % (sizeof(loop) - 1)]);
+        if (cursor.enabled) {
+            _plot_char(cursor.y, cursor.x, tick % 2 ? VT_CURSOR_CHAR : 0x20);
+        }
+        ++tick;
+    }
 }
 
 /**
@@ -208,7 +262,9 @@ void clear_across(int8_t y, int8_t x, int16_t l) {
  *  Hide the cursor, whether in hardware or software. If necessary restore any characters or attributes changed by
  *  cursor_on(). This routine can be a no-op if there is a hardware cursor and updating the display does not affect it.
  */
-void cursor_off(void) { }
+void cursor_off(void) {
+    cursor.enabled = false;
+}
 
 /**
  *  Turn the cursor back on at x,y. Ensure that any data that is needed to restore the display is saved so that
@@ -216,13 +272,19 @@ void cursor_off(void) { }
  *
  *  The following methods will only be invoked between a cursor_off() and a cursor_on()
  */
-void cursor_on(int8_t y, int8_t x) { }
+void cursor_on(int8_t y, int8_t x) {
+    cursor.y = y;
+    cursor.x = x;
+    cursor.enabled = true;
+}
 
 /**
  *  Disable the cursor even if it is a hardware cursor. This is used to indicate that the user has specifically disabled
  *  the cursor, rather than indicating a request to hide the cursor for a display update.
  */
-void cursor_disable(void) { }
+void cursor_disable(void) {
+    cursor.enabled = false;
+}
 
 /**
  *  Scroll the screen up (normal scroll). The bottom line does not need to be cleared. Hardware scrolling can be used if
@@ -253,18 +315,19 @@ void do_beep(void) {}
 /**
  *  Notify on VT52 mode events.
  */
-void vtattr_notify(void) {}
+void vtattr_notify(void) {
+    fg = MASK(vtink);
+    bg = MASK(vtpaper);
+    if (vtattr & VTA_INVERSE) {
+        uint16_t s = fg;
+        fg = bg;
+        bg = s;
+    }
+}
 
-/**
- *  Plot a character onto the display at y,x. Currently c is in the range 0-255 but that may change in future to
- *  accomodate non-ascii displays and systems with additional graphic ranges.
- */
-void plot_char(int8_t row, int8_t col, uint16_t c) {
+static void _plot_char(uint8_t row, uint8_t col, uint16_t c) {
     static uint8_t txbuf[FONT_WIDTH * FONT_HEIGHT * 4 / 8]; // grayscale
     const uint8_t *bmp = GLYPH(c);  // monochrome
-    // TODO move to vtattr_notify()
-    uint16_t fg = MASK(vtink);
-    uint16_t bg = MASK(vtpaper);
     uint8_t x = ADDRX(col);
     uint8_t y = ADDRY(row);
     uint8_t cs = CHIP(col);
@@ -274,7 +337,6 @@ void plot_char(int8_t row, int8_t col, uint16_t c) {
     };
     uint16_t *u16 = (uint16_t *) txbuf;
     uint16_t *l16 = 1 + (uint16_t *) txbuf;
-    memset(txbuf, bg, sizeof(txbuf));
     for (size_t i = FONT_WIDTH * FONT_HEIGHT / 8; i > 0; --i, ++bmp, u16+=2, l16+=2) {
         // convert monochrome to 4-bit grayscale
         uint16_t m1 = m4g16[(*bmp & 0xf0) >> 4];
@@ -289,4 +351,16 @@ void plot_char(int8_t row, int8_t col, uint16_t c) {
     gpio_put(VT_DC, HIGH);
     spi_write_blocking(VT_SPI_MOD, txbuf, sizeof(txbuf));
     gpio_put(cs, HIGH);
+}
+
+/**
+ *  Plot a character onto the display at y,x. Currently c is in the range 0-255 but that may change in future to
+ *  accomodate non-ascii displays and systems with additional graphic ranges.
+ */
+void plot_char(int8_t row, int8_t col, uint16_t c) {
+    _plot_char(row, col, c);
+    timer_reset();
+    if (! display.enabled) {
+        display_on();
+    }
 }

@@ -5,6 +5,7 @@
 #include "globals.h"
 #include "printf.h"
 #include <hardware/sync.h>
+#include <hardware/watchdog.h>
 
 //the led that indicates power
 //The on board one is pin 25
@@ -68,6 +69,9 @@ int main(void)
     gpio_init(POWER_LED);
     gpio_set_dir(POWER_LED, GPIO_OUT);
     gpio_put(POWER_LED, 1);
+
+    // enable watchdog
+    watchdog_enable(1000, 1);
 
     di();
     fuzix_main();

@@ -13,7 +13,11 @@
 #include "globals.h"
 #include "picosdk.h"
 #include <hardware/irq.h>
+#include <hardware/watchdog.h>
 #include <hardware/structs/timer.h>
+#include <ssd1320z2.h>
+
+#define TICK_DIV 200
 
 struct devsw dev_tab[] =  /* The device driver switch table */
 {
@@ -41,6 +45,7 @@ bool validdev(uint16_t dev) {
 }
 
 static void timer_tick_cb(unsigned alarm) {
+    static uint_fast8_t display_div = TICK_DIV;
     absolute_time_t next;
     update_us_since_boot(&next, to_us_since_boot(now) + (1000000 / TICKSPERSEC));
     if (hardware_alarm_set_target(0, next)) {
@@ -48,6 +53,11 @@ static void timer_tick_cb(unsigned alarm) {
         hardware_alarm_set_target(0, next);
     }
     timer_interrupt();
+    if (++display_div > TICK_DIV) {
+        display_div = 0;
+        display_update();
+    }
+    watchdog_update();
 }
 
 void device_init(void) {

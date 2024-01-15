@@ -11,5 +11,6 @@
 #define VT_CS2 15
 
 extern void display_init(void);
+extern void display_update(void);
 
 #endif
