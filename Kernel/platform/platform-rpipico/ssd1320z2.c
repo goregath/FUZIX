@@ -71,7 +71,7 @@ static uint8_t lineaddr = 0;
 static uint16_t fg;
 static uint16_t bg;
 
-// Map 4 monochrome pxels to 4x4 bit grayscale
+// Map 4 monochrome pixels to 4x4 bit grayscale
 static const uint8_t m4[] = {
     0x00, 0x00,
     0x00, 0xf0,
@@ -309,7 +309,7 @@ void cursor_disable(void) {
  *  present.
  */
 void scroll_up(void) {
-	memmove(cbuf, cbuf + VT_WIDTH, VT_WIDTH * VT_BOTTOM);
+    memmove(cbuf, cbuf + VT_WIDTH, VT_WIDTH * VT_BOTTOM);
     clear_lines(0, 1);
     lineaddr = (lineaddr + FONT_HEIGHT) % SEGS;
     rawsetall(COMREG, 0xa2);
@@ -321,7 +321,7 @@ void scroll_up(void) {
  *  present.
  */
 void scroll_down(void) {
-	memmove(cbuf + VT_WIDTH, cbuf, VT_WIDTH * VT_BOTTOM);
+    memmove(cbuf + VT_WIDTH, cbuf, VT_WIDTH * VT_BOTTOM);
     lineaddr = (lineaddr + SEGS - FONT_HEIGHT) % SEGS;
     rawsetall(COMREG, 0xa2);
     rawsetall(COMREG, lineaddr);
